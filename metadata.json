@@ -1,0 +1,6 @@
+{
+  "name": "SAMP (Social Automation & Marketing Platform)",
+  "description": "Enterprise-grade social media management, real-time multi-network scheduling, automated workflows, and analytics dashboard inspired by HeroPost.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
