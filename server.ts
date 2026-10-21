@@ -841,10 +841,44 @@ app.get('/api/health', (req: Request, res: Response) => {
 
       // 3. Collect ALL project files
       const projectFiles = getAllProjectFiles(__dirname);
-
-      // Push all critical files to GitHub using Contents API
-      // Prioritize top-level and src files
       const pushedFiles: string[] = [];
+
+      // Clean up legacy bun.lock from remote repo if it exists to prevent Vercel lockfile conflicts
+      try {
+        const bunCheck = await fetch(
+          `https://api.github.com/repos/${username}/${repoName}/contents/bun.lock`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: 'application/vnd.github+json',
+              'User-Agent': 'SAMP-Platform-Automation',
+            },
+          }
+        );
+        if (bunCheck.ok) {
+          const bunData = await bunCheck.json();
+          if (bunData?.sha) {
+            await fetch(
+              `https://api.github.com/repos/${username}/${repoName}/contents/bun.lock`,
+              {
+                method: 'DELETE',
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  Accept: 'application/vnd.github+json',
+                  'User-Agent': 'SAMP-Platform-Automation',
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  message: 'chore: remove legacy bun.lock in favor of package-lock.json',
+                  sha: bunData.sha,
+                }),
+              }
+            );
+          }
+        }
+      } catch (bunErr) {
+        console.warn('Could not check or clean up remote bun.lock:', bunErr);
+      }
 
       for (const file of projectFiles) {
         try {

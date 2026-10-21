@@ -52,7 +52,7 @@ export const GitHubDeployModal: React.FC<GitHubDeployModalProps> = ({
   // Vercel State
   const [copiedVercelCli, setCopiedVercelCli] = useState<boolean>(false);
   const [copiedEnvVars, setCopiedEnvVars] = useState<boolean>(false);
-  const [customGitHubUser, setCustomGitHubUser] = useState<string>('workonlinegctpk');
+  const [customGitHubUser, setCustomGitHubUser] = useState<string>('workonlinegctpk-cmyk');
 
   React.useEffect(() => {
     if (isOpen) {
