@@ -1,0 +1,209 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Default-deny catch-all safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Common security helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isUser(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Validation Blueprint for UserProfile
+    function isValidUser(data) {
+      return data.keys().hasAll(['id', 'name', 'email', 'role', 'createdAt']) &&
+        data.id is string && data.id.size() <= 128 && data.id == request.auth.uid &&
+        data.name is string && data.name.size() <= 150 &&
+        data.email is string && data.email.size() <= 200 &&
+        data.role in ['owner', 'admin', 'manager'] &&
+        data.createdAt is string && data.createdAt.size() <= 60 &&
+        (!('company' in data) || (data.company is string && data.company.size() <= 150)) &&
+        (!('workspaceName' in data) || (data.workspaceName is string && data.workspaceName.size() <= 150)) &&
+        (!('avatarUrl' in data) || (data.avatarUrl is string && data.avatarUrl.size() <= 1000));
+    }
+
+    // Validation Blueprint for SocialAccount
+    function isValidAccount(data) {
+      return data.keys().hasAll(['id', 'userId', 'platform', 'name', 'username', 'status', 'connectedAt']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.userId is string && data.userId == request.auth.uid &&
+        data.platform in ['facebook', 'instagram', 'twitter', 'linkedin', 'pinterest', 'tiktok', 'youtube', 'threads'] &&
+        data.name is string && data.name.size() <= 150 &&
+        data.username is string && data.username.size() <= 150 &&
+        data.status in ['active', 'expired', 'rate_limited', 'disconnected'] &&
+        data.connectedAt is string && data.connectedAt.size() <= 60 &&
+        (!('accountType' in data) || (data.accountType in ['page', 'profile', 'channel', 'business'])) &&
+        (!('avatarUrl' in data) || (data.avatarUrl is string && data.avatarUrl.size() <= 1000)) &&
+        (!('followersCount' in data) || (data.followersCount is number)) &&
+        (!('tokenExpiresAt' in data) || (data.tokenExpiresAt is string && data.tokenExpiresAt.size() <= 60)) &&
+        (!('lastHealthCheck' in data) || (data.lastHealthCheck is string && data.lastHealthCheck.size() <= 60));
+    }
+
+    // Validation Blueprint for ScheduledPost
+    function isValidPost(data) {
+      return data.keys().hasAll(['id', 'userId', 'content', 'targetAccountIds', 'status', 'scheduledFor', 'createdAt', 'updatedAt']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.userId is string && data.userId == request.auth.uid &&
+        data.content is string && data.content.size() <= 10000 &&
+        data.targetAccountIds is list && data.targetAccountIds.size() <= 50 &&
+        data.status in ['draft', 'queued', 'scheduled', 'publishing', 'published', 'failed'] &&
+        data.scheduledFor is string && data.scheduledFor.size() <= 60 &&
+        data.createdAt is string && data.createdAt.size() <= 60 &&
+        data.updatedAt is string && data.updatedAt.size() <= 60 &&
+        (!('targetPlatforms' in data) || (data.targetPlatforms is list && data.targetPlatforms.size() <= 20)) &&
+        (!('tags' in data) || (data.tags is list && data.tags.size() <= 30)) &&
+        (!('postType' in data) || (data.postType in ['standard', 'reel', 'story', 'carousel', 'short', 'thread'])) &&
+        (!('publishedAt' in data) || (data.publishedAt is string && data.publishedAt.size() <= 60)) &&
+        (!('firstComment' in data) || (data.firstComment is string && data.firstComment.size() <= 2000)) &&
+        (!('locationTag' in data) || (data.locationTag is string && data.locationTag.size() <= 200));
+    }
+
+    // Validation Blueprint for RssFeedAutomation
+    function isValidRss(data) {
+      return data.keys().hasAll(['id', 'userId', 'name', 'feedUrl', 'targetAccountIds', 'isActive']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.userId is string && data.userId == request.auth.uid &&
+        data.name is string && data.name.size() <= 200 &&
+        data.feedUrl is string && data.feedUrl.size() <= 1000 &&
+        data.targetAccountIds is list && data.targetAccountIds.size() <= 50 &&
+        data.isActive is bool &&
+        (!('template' in data) || (data.template is string && data.template.size() <= 2000)) &&
+        (!('checkIntervalMinutes' in data) || (data.checkIntervalMinutes is number)) &&
+        (!('postsPublishedCount' in data) || (data.postsPublishedCount is number)) &&
+        (!('lastCheckedAt' in data) || (data.lastCheckedAt is string && data.lastCheckedAt.size() <= 60));
+    }
+
+    // Validation Blueprint for EvergreenQueue
+    function isValidQueue(data) {
+      return data.keys().hasAll(['id', 'userId', 'name', 'targetAccountIds', 'intervalHours', 'isActive']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.userId is string && data.userId == request.auth.uid &&
+        data.name is string && data.name.size() <= 200 &&
+        data.targetAccountIds is list && data.targetAccountIds.size() <= 50 &&
+        data.intervalHours is number &&
+        data.isActive is bool &&
+        (!('postCount' in data) || (data.postCount is number)) &&
+        (!('lastRunAt' in data) || (data.lastRunAt is string && data.lastRunAt.size() <= 60));
+    }
+
+    // Validation Blueprint for InboxMessage
+    function isValidInbox(data) {
+      return data.keys().hasAll(['id', 'userId', 'accountId', 'platform', 'senderName', 'message', 'timestamp', 'isRead']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.userId is string && data.userId == request.auth.uid &&
+        data.accountId is string && data.accountId.size() <= 128 &&
+        data.platform in ['facebook', 'instagram', 'twitter', 'linkedin', 'pinterest', 'tiktok', 'youtube', 'threads'] &&
+        data.senderName is string && data.senderName.size() <= 150 &&
+        data.message is string && data.message.size() <= 5000 &&
+        data.timestamp is string && data.timestamp.size() <= 60 &&
+        data.isRead is bool &&
+        (!('senderUsername' in data) || (data.senderUsername is string && data.senderUsername.size() <= 150)) &&
+        (!('senderAvatar' in data) || (data.senderAvatar is string && data.senderAvatar.size() <= 1000)) &&
+        (!('type' in data) || (data.type in ['comment', 'direct_message', 'mention'])) &&
+        (!('sentiment' in data) || (data.sentiment in ['positive', 'neutral', 'negative'])) &&
+        (!('replies' in data) || (data.replies is list && data.replies.size() <= 50));
+    }
+
+    // Bootstrapped Connection Test probe path
+    match /test/{testId} {
+      allow get: if true;
+      allow list, write: if false;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow get: if isUser(userId);
+      allow list: if false;
+      allow create: if isUser(userId) && isValidUser(incoming());
+      allow update: if isUser(userId) && isValidUser(incoming()) &&
+        incoming().id == existing().id &&
+        incoming().createdAt == existing().createdAt;
+      allow delete: if isUser(userId);
+    }
+
+    // Accounts collection
+    match /accounts/{accountId} {
+      allow get: if isSignedIn() && isValidId(accountId) && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(accountId) && isValidAccount(incoming());
+      allow update: if isSignedIn() && isValidId(accountId) &&
+        existing().userId == request.auth.uid &&
+        incoming().userId == existing().userId &&
+        incoming().id == existing().id &&
+        isValidAccount(incoming());
+      allow delete: if isSignedIn() && isValidId(accountId) && existing().userId == request.auth.uid;
+    }
+
+    // Posts collection
+    match /posts/{postId} {
+      allow get: if isSignedIn() && isValidId(postId) && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(postId) && isValidPost(incoming());
+      allow update: if isSignedIn() && isValidId(postId) &&
+        existing().userId == request.auth.uid &&
+        incoming().userId == existing().userId &&
+        incoming().id == existing().id &&
+        incoming().createdAt == existing().createdAt &&
+        isValidPost(incoming());
+      allow delete: if isSignedIn() && isValidId(postId) && existing().userId == request.auth.uid;
+    }
+
+    // RssAutomations collection
+    match /rssAutomations/{rssId} {
+      allow get: if isSignedIn() && isValidId(rssId) && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(rssId) && isValidRss(incoming());
+      allow update: if isSignedIn() && isValidId(rssId) &&
+        existing().userId == request.auth.uid &&
+        incoming().userId == existing().userId &&
+        incoming().id == existing().id &&
+        isValidRss(incoming());
+      allow delete: if isSignedIn() && isValidId(rssId) && existing().userId == request.auth.uid;
+    }
+
+    // EvergreenQueues collection
+    match /evergreenQueues/{queueId} {
+      allow get: if isSignedIn() && isValidId(queueId) && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(queueId) && isValidQueue(incoming());
+      allow update: if isSignedIn() && isValidId(queueId) &&
+        existing().userId == request.auth.uid &&
+        incoming().userId == existing().userId &&
+        incoming().id == existing().id &&
+        isValidQueue(incoming());
+      allow delete: if isSignedIn() && isValidId(queueId) && existing().userId == request.auth.uid;
+    }
+
+    // InboxMessages collection
+    match /inboxMessages/{messageId} {
+      allow get: if isSignedIn() && isValidId(messageId) && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(messageId) && isValidInbox(incoming());
+      allow update: if isSignedIn() && isValidId(messageId) &&
+        existing().userId == request.auth.uid &&
+        incoming().userId == existing().userId &&
+        incoming().id == existing().id &&
+        isValidInbox(incoming());
+      allow delete: if isSignedIn() && isValidId(messageId) && existing().userId == request.auth.uid;
+    }
+  }
+}

@@ -111,11 +111,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
           </div>
           <div className="text-2xl font-extrabold text-white tracking-tight">
-            {(analytics?.totalAudience || 208370).toLocaleString()}
+            {(analytics?.totalAudience ?? accounts.reduce((acc, a) => acc + (a.followersCount || 0), 0)).toLocaleString()}
           </div>
           <div className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-semibold mt-2">
             <TrendingUp className="w-3.5 h-3.5" />
-            <span>+{analytics?.growthRate || 14.6}% this month</span>
+            <span>+{analytics?.growthRate ?? 0}% this month</span>
           </div>
         </div>
 
@@ -150,7 +150,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             {publishedPosts.length} <span className="text-xs font-normal text-slate-400">delivered</span>
           </div>
           <div className="text-[11px] text-emerald-400 font-semibold mt-2">
-            100% Delivery Success Rate
+            {publishedPosts.length > 0 ? '100% Delivery Success Rate' : 'Awaiting first post'}
           </div>
         </div>
 
@@ -163,10 +163,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
           </div>
           <div className="text-2xl font-extrabold text-white tracking-tight">
-            {analytics?.averageEngagementRate || 4.82}%
+            {analytics?.averageEngagementRate ?? 0}%
           </div>
           <div className="text-[11px] text-indigo-300 font-medium mt-2">
-            Across 6 connected networks
+            Across {accounts.length} connected {accounts.length === 1 ? 'channel' : 'channels'}
           </div>
         </div>
       </div>

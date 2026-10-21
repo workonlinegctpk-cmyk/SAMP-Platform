@@ -1,0 +1,144 @@
+{
+  "entities": {
+    "users": {
+      "title": "UserProfile",
+      "description": "User profile with role, workspace, and company details.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 150 },
+        "email": { "type": "string", "maxLength": 200 },
+        "company": { "type": "string", "maxLength": 150 },
+        "workspaceName": { "type": "string", "maxLength": 150 },
+        "role": { "type": "string", "enum": ["owner", "admin", "manager"] },
+        "avatarUrl": { "type": "string", "maxLength": 1000 },
+        "createdAt": { "type": "string", "maxLength": 60 }
+      },
+      "required": ["id", "name", "email", "role", "createdAt"]
+    },
+    "accounts": {
+      "title": "SocialAccount",
+      "description": "Connected social media panel account with credentials and health status.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "platform": { "type": "string", "enum": ["facebook", "instagram", "twitter", "linkedin", "pinterest", "tiktok", "youtube", "threads"] },
+        "name": { "type": "string", "maxLength": 150 },
+        "username": { "type": "string", "maxLength": 150 },
+        "accountType": { "type": "string", "enum": ["page", "profile", "channel", "business"] },
+        "avatarUrl": { "type": "string", "maxLength": 1000 },
+        "status": { "type": "string", "enum": ["active", "expired", "rate_limited", "disconnected"] },
+        "followersCount": { "type": "number" },
+        "tokenExpiresAt": { "type": "string", "maxLength": 60 },
+        "connectedAt": { "type": "string", "maxLength": 60 },
+        "lastHealthCheck": { "type": "string", "maxLength": 60 }
+      },
+      "required": ["id", "userId", "platform", "name", "username", "status", "connectedAt"]
+    },
+    "posts": {
+      "title": "ScheduledPost",
+      "description": "Social media post scheduled or published to connected panel accounts.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "content": { "type": "string", "maxLength": 10000 },
+        "targetAccountIds": { "type": "array" },
+        "targetPlatforms": { "type": "array" },
+        "scheduledFor": { "type": "string", "maxLength": 60 },
+        "status": { "type": "string", "enum": ["draft", "queued", "scheduled", "publishing", "published", "failed"] },
+        "publishedAt": { "type": "string", "maxLength": 60 },
+        "firstComment": { "type": "string", "maxLength": 2000 },
+        "tags": { "type": "array" },
+        "locationTag": { "type": "string", "maxLength": 200 },
+        "postType": { "type": "string", "enum": ["standard", "reel", "story", "carousel", "short", "thread"] },
+        "createdAt": { "type": "string", "maxLength": 60 },
+        "updatedAt": { "type": "string", "maxLength": 60 },
+        "publishResults": { "type": "array" }
+      },
+      "required": ["id", "userId", "content", "targetAccountIds", "status", "scheduledFor", "createdAt", "updatedAt"]
+    },
+    "rssAutomations": {
+      "title": "RssFeedAutomation",
+      "description": "Automated RSS-to-Social publishing queue configuration.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 200 },
+        "feedUrl": { "type": "string", "maxLength": 1000 },
+        "targetAccountIds": { "type": "array" },
+        "template": { "type": "string", "maxLength": 2000 },
+        "isActive": { "type": "boolean" },
+        "checkIntervalMinutes": { "type": "number" },
+        "postsPublishedCount": { "type": "number" },
+        "lastCheckedAt": { "type": "string", "maxLength": 60 }
+      },
+      "required": ["id", "userId", "name", "feedUrl", "targetAccountIds", "isActive"]
+    },
+    "evergreenQueues": {
+      "title": "EvergreenQueue",
+      "description": "Evergreen content recurring publishing queue.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 200 },
+        "targetAccountIds": { "type": "array" },
+        "intervalHours": { "type": "number" },
+        "isActive": { "type": "boolean" },
+        "postCount": { "type": "number" },
+        "lastRunAt": { "type": "string", "maxLength": 60 }
+      },
+      "required": ["id", "userId", "name", "targetAccountIds", "intervalHours", "isActive"]
+    },
+    "inboxMessages": {
+      "title": "InboxMessage",
+      "description": "Unified social inbox message, comment, or mention across connected accounts.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "accountId": { "type": "string", "maxLength": 128 },
+        "platform": { "type": "string", "enum": ["facebook", "instagram", "twitter", "linkedin", "pinterest", "tiktok", "youtube", "threads"] },
+        "senderName": { "type": "string", "maxLength": 150 },
+        "senderUsername": { "type": "string", "maxLength": 150 },
+        "senderAvatar": { "type": "string", "maxLength": 1000 },
+        "type": { "type": "string", "enum": ["comment", "direct_message", "mention"] },
+        "message": { "type": "string", "maxLength": 5000 },
+        "timestamp": { "type": "string", "maxLength": 60 },
+        "sentiment": { "type": "string", "enum": ["positive", "neutral", "negative"] },
+        "isRead": { "type": "boolean" },
+        "replies": { "type": "array" }
+      },
+      "required": ["id", "userId", "accountId", "platform", "senderName", "message", "timestamp", "isRead"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/users" },
+      "description": "User profile records indexed by Firebase Auth UID."
+    },
+    "/accounts/{accountId}": {
+      "schema": { "$ref": "#/entities/accounts" },
+      "description": "Social media panel accounts linked to the user."
+    },
+    "/posts/{postId}": {
+      "schema": { "$ref": "#/entities/posts" },
+      "description": "Scheduled and published social posts created by users."
+    },
+    "/rssAutomations/{rssId}": {
+      "schema": { "$ref": "#/entities/rssAutomations" },
+      "description": "Automated RSS publishing streams owned by the user."
+    },
+    "/evergreenQueues/{queueId}": {
+      "schema": { "$ref": "#/entities/evergreenQueues" },
+      "description": "Recurring content publishing queues."
+    },
+    "/inboxMessages/{messageId}": {
+      "schema": { "$ref": "#/entities/inboxMessages" },
+      "description": "Unified social inbox comments, mentions, and DMs."
+    }
+  }
+}

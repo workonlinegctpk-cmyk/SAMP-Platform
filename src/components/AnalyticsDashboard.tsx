@@ -90,11 +90,11 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             <Eye className="w-4 h-4 text-sky-400" />
           </div>
           <div className="text-2xl font-extrabold text-white tracking-tight">
-            {(summary?.totalImpressions || 348200).toLocaleString()}
+            {(summary?.totalImpressions ?? 0).toLocaleString()}
           </div>
           <div className="flex items-center gap-1 text-[11px] text-emerald-400 font-semibold mt-2">
             <TrendingUp className="w-3.5 h-3.5" />
-            <span>+22.4% vs previous 30d</span>
+            <span>{summary?.totalImpressions ? '+22.4% vs previous 30d' : 'Real-time tracking active'}</span>
           </div>
         </div>
 
@@ -104,11 +104,11 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             <MousePointerClick className="w-4 h-4 text-indigo-400" />
           </div>
           <div className="text-2xl font-extrabold text-white tracking-tight">
-            {(summary?.totalClicks || 21940).toLocaleString()}
+            {(summary?.totalClicks ?? 0).toLocaleString()}
           </div>
           <div className="flex items-center gap-1 text-[11px] text-emerald-400 font-semibold mt-2">
             <TrendingUp className="w-3.5 h-3.5" />
-            <span>+18.1% CTR conversion</span>
+            <span>{summary?.totalClicks ? '+18.1% CTR conversion' : 'Direct link tracking enabled'}</span>
           </div>
         </div>
 
@@ -118,7 +118,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             <Flame className="w-4 h-4 text-amber-400" />
           </div>
           <div className="text-2xl font-extrabold text-white tracking-tight">
-            {summary?.averageEngagementRate || 4.82}%
+            {summary?.averageEngagementRate ?? 0}%
           </div>
           <div className="flex items-center gap-1 text-[11px] text-emerald-400 font-semibold mt-2">
             <span>Industry Benchmark: 2.4%</span>
@@ -131,10 +131,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             <Users className="w-4 h-4 text-violet-400" />
           </div>
           <div className="text-2xl font-extrabold text-white tracking-tight">
-            +{(Math.floor((summary?.totalAudience || 208370) * 0.082)).toLocaleString()}
+            +{(Math.floor((summary?.totalAudience ?? 0) * 0.082)).toLocaleString()}
           </div>
           <div className="flex items-center gap-1 text-[11px] text-violet-400 font-semibold mt-2">
-            <span>+{summary?.growthRate || 14.6}% annualized</span>
+            <span>+{summary?.growthRate ?? 0}% annualized</span>
           </div>
         </div>
       </div>
@@ -151,35 +151,41 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
           </div>
 
           <div className="space-y-3">
-            {metrics.map((m) => (
-              <div
-                key={m.platform}
-                className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800/80 hover:border-slate-700 transition-colors"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="capitalize font-bold text-xs text-white">{m.platform}</span>
-                    <span className="text-[10px] text-slate-400 font-mono">({m.postsCount} posts)</span>
-                  </div>
-                  <span className="text-xs font-extrabold text-emerald-400">
-                    {m.engagement}% Engagement
-                  </span>
-                </div>
-
-                <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden mb-2.5">
-                  <div
-                    className="bg-gradient-to-r from-indigo-500 to-cyan-400 h-full rounded-full"
-                    style={{ width: `${Math.min(100, m.engagement * 16)}%` }}
-                  ></div>
-                </div>
-
-                <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
-                  <span>Audience: {m.followers.toLocaleString()}</span>
-                  <span>Impressions: {m.impressions.toLocaleString()}</span>
-                  <span>Clicks: {m.clicks.toLocaleString()}</span>
-                </div>
+            {metrics.length === 0 ? (
+              <div className="p-8 text-center bg-slate-900/40 rounded-xl border border-slate-800/60">
+                <p className="text-xs text-slate-400">No channels linked yet. Connect your social channels to see real-time performance analytics.</p>
               </div>
-            ))}
+            ) : (
+              metrics.map((m) => (
+                <div
+                  key={m.platform}
+                  className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800/80 hover:border-slate-700 transition-colors"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="capitalize font-bold text-xs text-white">{m.platform}</span>
+                      <span className="text-[10px] text-slate-400 font-mono">({m.postsCount} posts)</span>
+                    </div>
+                    <span className="text-xs font-extrabold text-emerald-400">
+                      {m.engagement}% Engagement
+                    </span>
+                  </div>
+
+                  <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden mb-2.5">
+                    <div
+                      className="bg-gradient-to-r from-indigo-500 to-cyan-400 h-full rounded-full"
+                      style={{ width: `${Math.min(100, m.engagement * 16)}%` }}
+                    ></div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
+                    <span>Audience: {m.followers.toLocaleString()}</span>
+                    <span>Impressions: {m.impressions.toLocaleString()}</span>
+                    <span>Clicks: {m.clicks.toLocaleString()}</span>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 

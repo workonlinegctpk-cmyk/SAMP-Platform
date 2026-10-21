@@ -8,11 +8,18 @@ import {
   FileCode, 
   ShieldCheck, 
   Server, 
-  Activity 
+  Activity,
+  Layers,
+  Sparkles,
+  Flame,
+  CheckCircle2
 } from 'lucide-react';
+import firebaseConfig from '../../firebase-applet-config.json';
 
 export const DatabaseSchemaViewer: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'firestore' | 'postgres'>('firestore');
   const [copied, setCopied] = useState<boolean>(false);
+  const [copiedRules, setCopiedRules] = useState<boolean>(false);
   const [ddlCode, setDdlCode] = useState<string>('');
   const [selectedTable, setSelectedTable] = useState<string>('scheduled_posts');
 
@@ -24,6 +31,51 @@ export const DatabaseSchemaViewer: React.FC = () => {
       })
       .catch((err) => console.error('Failed to load DDL:', err));
   }, []);
+
+  const firestoreCollections = [
+    {
+      name: 'accounts',
+      path: '/accounts/{accountId}',
+      description: 'Connected social panel accounts (Instagram, Twitter/X, Facebook, LinkedIn, TikTok, YouTube, Threads, Pinterest).',
+      fields: ['id', 'userId', 'platform', 'name', 'username', 'accountType', 'status', 'followersCount', 'connectedAt', 'tokenExpiresAt'],
+      security: 'Owned by request.auth.uid. Validates schema and ID format.'
+    },
+    {
+      name: 'posts',
+      path: '/posts/{postId}',
+      description: 'Scheduled, queued, and published posts with media, target accounts, tags, and delivery logs.',
+      fields: ['id', 'userId', 'content', 'targetAccountIds', 'targetPlatforms', 'status', 'scheduledFor', 'publishedAt', 'createdAt', 'updatedAt'],
+      security: 'Owned by request.auth.uid. Enforces immutable creation timestamps and status enums.'
+    },
+    {
+      name: 'users',
+      path: '/users/{userId}',
+      description: 'User profiles generated via Google Authentication or email signup.',
+      fields: ['id', 'name', 'email', 'role', 'company', 'workspaceName', 'avatarUrl', 'createdAt'],
+      security: 'Read/write restricted to request.auth.uid == userId.'
+    },
+    {
+      name: 'rssAutomations',
+      path: '/rssAutomations/{rssId}',
+      description: 'RSS-to-social publishing streams and interval checking automations.',
+      fields: ['id', 'userId', 'name', 'feedUrl', 'targetAccountIds', 'template', 'isActive', 'checkIntervalMinutes'],
+      security: 'Owned by request.auth.uid.'
+    },
+    {
+      name: 'evergreenQueues',
+      path: '/evergreenQueues/{queueId}',
+      description: 'Recurring content publishing recycling queues.',
+      fields: ['id', 'userId', 'name', 'targetAccountIds', 'intervalHours', 'isActive', 'postCount'],
+      security: 'Owned by request.auth.uid.'
+    },
+    {
+      name: 'inboxMessages',
+      path: '/inboxMessages/{messageId}',
+      description: 'Social inbox mentions, comments, and direct messages across linked channels.',
+      fields: ['id', 'userId', 'accountId', 'platform', 'senderName', 'message', 'timestamp', 'isRead', 'replies'],
+      security: 'Owned by request.auth.uid.'
+    }
+  ];
 
   const tables = [
     {
@@ -79,42 +131,13 @@ export const DatabaseSchemaViewer: React.FC = () => {
       indexes: [
         'idx_delivery_logs_post_status ON publishing_delivery_logs (post_id, status)'
       ]
-    },
-    {
-      name: 'post_media',
-      description: 'Media attachments supporting images, reels, carousels, aspect ratios, and file sizes.',
-      columns: [
-        { name: 'id', type: 'UUID', key: 'PK', desc: 'Media ID' },
-        { name: 'post_id', type: 'UUID', key: 'FK', desc: 'Parent post' },
-        { name: 'media_url', type: 'TEXT', key: '', desc: 'Storage asset URL' },
-        { name: 'media_type', type: 'media_type', key: '', desc: 'image, video, gif' },
-        { name: 'file_size_bytes', type: 'BIGINT', key: '', desc: 'Payload size' },
-        { name: 'order_index', type: 'INT', key: '', desc: 'Carousel sequence index' },
-      ],
-      indexes: []
-    },
-    {
-      name: 'inbox_messages',
-      description: 'Cross-channel stream of mentions, DMs, and comments with real-time sentiment scoring.',
-      columns: [
-        { name: 'id', type: 'UUID', key: 'PK', desc: 'Message ID' },
-        { name: 'workspace_id', type: 'UUID', key: 'FK', desc: 'Workspace ID' },
-        { name: 'account_id', type: 'UUID', key: 'FK', desc: 'Source account' },
-        { name: 'platform', type: 'platform_type', key: '', desc: 'Source network' },
-        { name: 'sender_name', type: 'VARCHAR(255)', key: '', desc: 'Sender author' },
-        { name: 'sentiment', type: 'VARCHAR(20)', key: '', desc: 'positive, neutral, negative' },
-        { name: 'is_read', type: 'BOOLEAN', key: 'IDX', desc: 'Read state' },
-      ],
-      indexes: [
-        'idx_inbox_unread ON inbox_messages (workspace_id, is_read, received_at DESC)'
-      ]
     }
   ];
 
   const handleCopyDdl = () => {
     navigator.clipboard.writeText(ddlCode);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const activeTable = tables.find((t) => t.name === selectedTable) || tables[0];
@@ -126,177 +149,255 @@ export const DatabaseSchemaViewer: React.FC = () => {
         <div>
           <h1 className="text-xl font-extrabold text-white flex items-center gap-2">
             <Database className="w-5 h-5 text-indigo-400" />
-            <span>Robust PostgreSQL Scheduling Schema</span>
+            <span>Database Architecture & Cloud Engine</span>
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            Designed for high-concurrency real-time multi-network scheduling, partial retries, and analytics aggregation.
+            Cloud Firestore real-time NoSQL database engine alongside relational PostgreSQL schema.
           </p>
         </div>
 
-        <button
-          onClick={handleCopyDdl}
-          className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all flex items-center gap-2 shadow-lg shadow-indigo-600/30"
-        >
-          {copied ? <Check className="w-4 h-4 text-white" /> : <Copy className="w-4 h-4" />}
-          <span>{copied ? 'Copied schema.sql' : 'Copy Full schema.sql'}</span>
-        </button>
-      </div>
-
-      {/* Schema Highlights Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-4">
-          <div className="flex items-center gap-2 text-indigo-400 mb-1">
-            <Server className="w-4 h-4" />
-            <span className="text-xs font-bold uppercase tracking-wider">Engine Compatibility</span>
-          </div>
-          <div className="text-lg font-extrabold text-white">PostgreSQL 14+ / Supabase</div>
-          <p className="text-[11px] text-slate-400 mt-1">
-            Standard ACID compliance with native JSONB, UUIDs, and partial scheduling indexes.
-          </p>
-        </div>
-
-        <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-4">
-          <div className="flex items-center gap-2 text-emerald-400 mb-1">
-            <Activity className="w-4 h-4" />
-            <span className="text-xs font-bold uppercase tracking-wider">Sub-Millisecond Polling</span>
-          </div>
-          <div className="text-lg font-extrabold text-white">Filtered Partial Index</div>
-          <p className="text-[11px] text-slate-400 mt-1">
-            Indexes only active upcoming posts (`WHERE status IN ('scheduled', 'queued')`).
-          </p>
-        </div>
-
-        <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-4">
-          <div className="flex items-center gap-2 text-cyan-400 mb-1">
-            <ShieldCheck className="w-4 h-4" />
-            <span className="text-xs font-bold uppercase tracking-wider">Audit & Delivery Resilience</span>
-          </div>
-          <div className="text-lg font-extrabold text-white">Per-Channel Execution Logs</div>
-          <p className="text-[11px] text-slate-400 mt-1">
-            Tracks individual network response codes, latency ms, and retry backoffs.
-          </p>
+        {/* Engine Switcher */}
+        <div className="flex bg-slate-900 border border-slate-800 rounded-xl p-1 text-xs font-bold">
+          <button
+            onClick={() => setActiveTab('firestore')}
+            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+              activeTab === 'firestore'
+                ? 'bg-indigo-600 text-white shadow'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>Firebase Firestore (Active)</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('postgres')}
+            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+              activeTab === 'postgres'
+                ? 'bg-indigo-600 text-white shadow'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Server className="w-3.5 h-3.5" />
+            <span>PostgreSQL Schema DDL</span>
+          </button>
         </div>
       </div>
 
-      {/* Interactive Table Explorer & DDL Code */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Table Selector Column */}
-        <div className="lg:col-span-4 space-y-2">
-          <div className="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">
-            Database Entities ({tables.length})
-          </div>
-          {tables.map((t) => (
-            <button
-              key={t.name}
-              onClick={() => setSelectedTable(t.name)}
-              className={`w-full text-left p-3 rounded-xl border text-xs font-mono transition-all flex items-center justify-between ${
-                selectedTable === t.name
-                  ? 'bg-indigo-600/20 border-indigo-500 text-white shadow-sm ring-1 ring-indigo-500/50'
-                  : 'bg-[#0f172a] border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Table className="w-3.5 h-3.5 text-indigo-400" />
-                <span className="font-bold">{t.name}</span>
+      {activeTab === 'firestore' ? (
+        /* FIREBASE FIRESTORE CLOUD DATABASE VIEW */
+        <div className="space-y-6 animate-in fade-in duration-200">
+          {/* Active Cloud Config Banner */}
+          <div className="bg-gradient-to-r from-indigo-950/70 via-slate-900 to-slate-900 border border-indigo-500/30 rounded-2xl p-5 shadow-xl">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-950 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>Provisioned & Deployed</span>
+                  </span>
+                  <span className="text-xs text-slate-400 font-mono">Asia Southeast Region</span>
+                </div>
+                <h2 className="text-base font-bold text-white">
+                  Google Cloud Firestore Database
+                </h2>
+                <div className="text-xs text-slate-400 font-mono mt-1 space-y-0.5">
+                  <div>Project ID: <span className="text-indigo-300 font-bold">{firebaseConfig.projectId}</span></div>
+                  <div>Database ID: <span className="text-indigo-300 font-bold">{firebaseConfig.firestoreDatabaseId}</span></div>
+                </div>
               </div>
-              <span className="text-[10px] text-slate-500">{t.columns.length} cols</span>
-            </button>
-          ))}
-        </div>
 
-        {/* Selected Table Columns & Indexes */}
-        <div className="lg:col-span-8 bg-[#0f172a] border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
-          <div className="flex items-start justify-between pb-3 border-b border-slate-800">
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-mono font-extrabold text-white">{activeTable.name}</h2>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-950 text-indigo-300 border border-indigo-500/30">
-                  Table
-                </span>
+              <div className="flex items-center gap-3">
+                <div className="px-3 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-center">
+                  <div className="text-xs font-bold text-emerald-400">Google Auth</div>
+                  <div className="text-[10px] text-slate-400">OAuth Popup</div>
+                </div>
+                <div className="px-3 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-center">
+                  <div className="text-xs font-bold text-indigo-400">Zero-Trust ABAC</div>
+                  <div className="text-[10px] text-slate-400">Strict Rules Active</div>
+                </div>
               </div>
-              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                {activeTable.description}
+            </div>
+          </div>
+
+          {/* Collections Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {firestoreCollections.map((col) => (
+              <div
+                key={col.name}
+                className="bg-[#0f172a] border border-slate-800 rounded-2xl p-5 shadow-sm space-y-3 flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <h3 className="text-sm font-bold text-white font-mono">{col.path}</h3>
+                    <span className="px-1.5 py-0.5 rounded text-[9px] uppercase font-bold bg-indigo-950 text-indigo-300 border border-indigo-500/30">
+                      Collection
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 leading-relaxed mb-3">
+                    {col.description}
+                  </p>
+
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                      Indexed Document Fields:
+                    </span>
+                    <div className="flex flex-wrap gap-1">
+                      {col.fields.map((f) => (
+                        <span key={f} className="px-1.5 py-0.5 rounded text-[10px] bg-slate-900 border border-slate-800 text-slate-300 font-mono">
+                          {f}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-slate-800/80 text-[10px] text-emerald-400 font-medium flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                  <span>{col.security}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        /* RELATIONAL POSTGRESQL DDL VIEW */
+        <div className="space-y-6 animate-in fade-in duration-200">
+          {/* Schema Highlights Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-4">
+              <div className="flex items-center gap-2 text-indigo-400 mb-1">
+                <Server className="w-4 h-4" />
+                <span className="text-xs font-bold uppercase tracking-wider">Engine Compatibility</span>
+              </div>
+              <div className="text-lg font-extrabold text-white">PostgreSQL 14+ / Supabase</div>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Standard ACID compliance with native JSONB, UUIDs, and partial scheduling indexes.
+              </p>
+            </div>
+
+            <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-4">
+              <div className="flex items-center gap-2 text-emerald-400 mb-1">
+                <Activity className="w-4 h-4" />
+                <span className="text-xs font-bold uppercase tracking-wider">High-Concurrency Scheduling</span>
+              </div>
+              <div className="text-lg font-extrabold text-white">Zero Deadlock Execution</div>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Optimized for FOR UPDATE SKIP LOCKED worker queues and cron microservices.
+              </p>
+            </div>
+
+            <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-4">
+              <div className="flex items-center gap-2 text-violet-400 mb-1">
+                <ShieldCheck className="w-4 h-4" />
+                <span className="text-xs font-bold uppercase tracking-wider">Security & Tokens</span>
+              </div>
+              <div className="text-lg font-extrabold text-white">Multi-Tenant Isolation</div>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Foreign-keyed workspace scoping preventing cross-account access.
               </p>
             </div>
           </div>
 
-          {/* Columns Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs font-mono">
-              <thead>
-                <tr className="border-b border-slate-800 text-[10px] font-bold uppercase text-slate-400">
-                  <th className="pb-2">Column</th>
-                  <th className="pb-2">Type</th>
-                  <th className="pb-2">Key / Index</th>
-                  <th className="pb-2">Description</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60 text-[11px]">
-                {activeTable.columns.map((col) => (
-                  <tr key={col.name} className="hover:bg-slate-900/40">
-                    <td className="py-2.5 font-bold text-slate-200">{col.name}</td>
-                    <td className="py-2.5 text-indigo-300">{col.type}</td>
-                    <td className="py-2.5">
-                      {col.key === 'PK' && (
-                        <span className="px-1.5 py-0.5 rounded text-[9px] bg-amber-950 text-amber-300 border border-amber-500/40 font-bold">
-                          PRIMARY
-                        </span>
-                      )}
-                      {col.key === 'FK' && (
-                        <span className="px-1.5 py-0.5 rounded text-[9px] bg-sky-950 text-sky-300 border border-sky-500/40 font-bold">
-                          FOREIGN
-                        </span>
-                      )}
-                      {col.key === 'IDX' && (
-                        <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-950 text-emerald-300 border border-emerald-500/40 font-bold">
-                          INDEX
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-2.5 text-slate-400 font-sans">{col.desc}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Dedicated Indexes */}
-          {activeTable.indexes.length > 0 && (
-            <div className="pt-3 border-t border-slate-800 space-y-1.5">
-              <span className="text-[10px] uppercase font-bold text-slate-400">
-                Specialized Indexes on this table:
+          {/* Interactive Table Inspector */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-4 bg-[#0f172a] border border-slate-800 rounded-2xl p-4 space-y-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block px-2 mb-2">
+                Relational Tables ({tables.length})
               </span>
-              {activeTable.indexes.map((idx, i) => (
-                <div key={i} className="p-2 rounded-lg bg-slate-950 border border-slate-800 font-mono text-[10px] text-emerald-400">
-                  CREATE INDEX {idx};
-                </div>
+              {tables.map((t) => (
+                <button
+                  key={t.name}
+                  onClick={() => setSelectedTable(t.name)}
+                  className={`w-full text-left p-3 rounded-xl transition-all border ${
+                    selectedTable === t.name
+                      ? 'bg-indigo-600/15 border-indigo-500/50 text-white shadow-sm'
+                      : 'bg-slate-900/60 border-slate-800/80 text-slate-400 hover:text-white hover:border-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-mono text-xs font-bold text-indigo-400">{t.name}</span>
+                    <span className="text-[10px] text-slate-400 font-mono">({t.columns.length} cols)</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 line-clamp-2 leading-relaxed">{t.description}</p>
+                </button>
               ))}
             </div>
-          )}
-        </div>
-      </div>
 
-      {/* Raw DDL Viewer */}
-      <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <FileCode className="w-4 h-4 text-indigo-400" />
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200">
-              Raw Production schema.sql DDL
-            </h3>
+            <div className="lg:col-span-8 bg-[#0f172a] border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div>
+                  <h3 className="font-mono text-sm font-extrabold text-white">{activeTable.name}</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">{activeTable.description}</p>
+                </div>
+                <span className="px-2.5 py-1 rounded-md text-[10px] font-mono font-bold bg-slate-900 text-indigo-300 border border-slate-800">
+                  {activeTable.columns.length} Columns · {activeTable.indexes.length} Indexes
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs font-mono">
+                  <thead>
+                    <tr className="text-slate-400 border-b border-slate-800/80 text-[10px] uppercase">
+                      <th className="pb-2">Column</th>
+                      <th className="pb-2">Type</th>
+                      <th className="pb-2">Key / Constraint</th>
+                      <th className="pb-2">Description</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/50">
+                    {activeTable.columns.map((col) => (
+                      <tr key={col.name} className="hover:bg-slate-800/30">
+                        <td className="py-2.5 text-white font-bold">{col.name}</td>
+                        <td className="py-2.5 text-indigo-400">{col.type}</td>
+                        <td className="py-2.5">
+                          {col.key === 'PK' && (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] bg-amber-950 text-amber-300 border border-amber-500/40 font-bold">
+                              PRIMARY
+                            </span>
+                          )}
+                          {col.key === 'FK' && (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] bg-sky-950 text-sky-300 border border-sky-500/40 font-bold">
+                              FOREIGN
+                            </span>
+                          )}
+                          {col.key === 'IDX' && (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-950 text-emerald-300 border border-emerald-500/40 font-bold">
+                              INDEX
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2.5 text-slate-400 font-sans">{col.desc}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
-          <button
-            onClick={handleCopyDdl}
-            className="text-xs text-indigo-400 hover:text-indigo-300 font-bold"
-          >
-            {copied ? 'Copied' : 'Copy All'}
-          </button>
-        </div>
 
-        <pre className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-300 overflow-x-auto max-h-72 leading-relaxed">
-          {ddlCode || '-- Loading schema.sql...'}
-        </pre>
-      </div>
+          {/* Raw DDL Viewer */}
+          <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileCode className="w-4 h-4 text-indigo-400" />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200">
+                  Raw Production schema.sql DDL
+                </h3>
+              </div>
+              <button
+                onClick={handleCopyDdl}
+                className="text-xs text-indigo-400 hover:text-indigo-300 font-bold"
+              >
+                {copied ? 'Copied' : 'Copy All'}
+              </button>
+            </div>
+
+            <pre className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-300 overflow-x-auto max-h-72 leading-relaxed">
+              {ddlCode || '-- Loading schema.sql...'}
+            </pre>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
