@@ -8,12 +8,16 @@ import { randomUUID } from 'crypto';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const DATA_DIR = path.resolve(__dirname, 'data');
+const DATA_DIR = process.env.VERCEL ? path.resolve('/tmp', 'data') : path.resolve(__dirname, 'data');
 const DATA_FILE = path.resolve(DATA_DIR, 'samp_store.json');
 
-// Ensure data directory exists
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+// Ensure data directory exists safely (including serverless /tmp)
+try {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+} catch (err) {
+  console.warn('Could not initialize data directory, using in-memory store:', err);
 }
 
 interface UserRecord {
@@ -200,15 +204,24 @@ function getAllProjectFiles(dir: string, baseDir: string = dir): Array<{ path: s
   return results;
 }
 
-async function startServer() {
-  const app = express();
-  const PORT = Number(process.env.PORT) || 3000;
+const app = express();
+const PORT = Number(process.env.PORT) || 3000;
 
-  app.use(express.json({ limit: '50mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-  // API Health & Status
-  app.get('/api/health', (req: Request, res: Response) => {
+// Compatibility middleware for Vercel serverless function routing
+if (process.env.VERCEL) {
+  app.use((req, res, next) => {
+    if (req.url && !req.url.startsWith('/api')) {
+      req.url = `/api${req.url}`;
+    }
+    next();
+  });
+}
+
+// API Health & Status
+app.get('/api/health', (req: Request, res: Response) => {
     res.json({
       status: 'healthy',
       app: 'SAMP (Social Automation & Marketing Platform)',
@@ -894,25 +907,33 @@ async function startServer() {
     }
   });
 
-  // Mount Vite or static dist
-  if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-  } else {
-    app.use(express.static(path.resolve(__dirname, 'dist')));
-    app.get('*', (req: Request, res: Response) => {
-      res.sendFile(path.resolve(__dirname, 'dist', 'index.html'));
+  // Standalone server starter (for local dev and standard Node environments)
+  async function startServer() {
+    // Mount Vite in development or static dist in production
+    if (process.env.NODE_ENV !== 'production') {
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+    } else {
+      app.use(express.static(path.resolve(__dirname, 'dist')));
+      app.get('*', (req: Request, res: Response) => {
+        res.sendFile(path.resolve(__dirname, 'dist', 'index.html'));
+      });
+    }
+
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 SAMP (Social Automation & Marketing Platform) running on http://localhost:${PORT}`);
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 SAMP (Social Automation & Marketing Platform) running on http://localhost:${PORT}`);
-  });
-}
+  // Only auto-start standalone HTTP listener when not running in Vercel serverless environment
+  if (!process.env.VERCEL && process.env.NODE_ENV !== 'test') {
+    startServer().catch((err) => {
+      console.error('Fatal server error:', err);
+    });
+  }
 
-startServer().catch((err) => {
-  console.error('Fatal server error:', err);
-});
+  export { app, startServer };
+  export default app;

@@ -124,16 +124,16 @@ export const Navbar: React.FC<NavbarProps> = ({
           <span>{time} UTC</span>
         </div>
 
-        {/* GitHub Automation Button */}
+        {/* Vercel & GitHub Deployment Center Button */}
         <button
           onClick={onOpenGitHubModal}
           className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-xs font-semibold text-slate-200 hover:text-white transition-all shadow-sm"
-          title="Automate GitHub repository & deployment creation"
+          title="Vercel & GitHub Deployment Center"
         >
-          <GitBranch className="w-4 h-4 text-purple-400" />
-          <span className="hidden sm:inline">GitHub Repo</span>
-          <span className="px-1.5 py-0.2 rounded text-[10px] bg-purple-950 border border-purple-500/40 text-purple-300 font-mono">
-            SAMP-Platform
+          <span className="text-white font-black text-xs">▲</span>
+          <span className="hidden sm:inline">Deploy</span>
+          <span className="px-1.5 py-0.2 rounded text-[10px] bg-indigo-950 border border-indigo-500/40 text-indigo-300 font-mono">
+            Vercel Ready
           </span>
         </button>
 

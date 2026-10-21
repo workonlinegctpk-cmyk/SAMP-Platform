@@ -6,6 +6,7 @@
 
 <p align="center">
   <a href="#-features"><img src="https://img.shields.io/badge/Status-Production%20Ready-emerald?style=for-the-badge&logo=rocket" alt="Status" /></a>
+  <a href="#-deploying-to-vercel"><img src="https://img.shields.io/badge/Deploy-Vercel%20Ready-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="Vercel Ready" /></a>
   <a href="#-tech-stack"><img src="https://img.shields.io/badge/Frontend-React%2019%20%2B%20TypeScript-61dafb?style=for-the-badge&logo=react" alt="React 19" /></a>
   <a href="#-tech-stack"><img src="https://img.shields.io/badge/Styling-Tailwind%20CSS%20v4-38bdf8?style=for-the-badge&logo=tailwindcss" alt="Tailwind CSS v4" /></a>
   <a href="#-database-schema"><img src="https://img.shields.io/badge/Database-PostgreSQL%2014%2B-336791?style=for-the-badge&logo=postgresql" alt="PostgreSQL" /></a>
@@ -160,6 +161,85 @@ npm run build
 # Start production server
 npm start
 ```
+
+---
+
+## ▲ Deploying to Vercel
+
+SAMP is pre-configured for seamless zero-config deployment to **Vercel** with full static edge frontend delivery and Serverless Function API routing via `vercel.json` and `api/index.ts`.
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fworkonlinegctpk%2FSAMP-Platform&env=GEMINI_API_KEY,APP_URL)
+
+### Method 1: Git Integration (Recommended)
+
+1. **Push your code to GitHub**:
+   Use the built-in in-app **"GitHub Repo"** automator modal in SAMP or push manually:
+   ```bash
+   git init
+   git add .
+   git commit -m "feat: initial commit for SAMP platform"
+   git branch -M main
+   git remote add origin https://github.com/YOUR_USERNAME/SAMP-Platform.git
+   git push -u origin main
+   ```
+
+2. **Import into Vercel**:
+   - Go to [vercel.com/new](https://vercel.com/new).
+   - Sign in and select your **SAMP-Platform** repository.
+   - Vercel automatically detects the **Vite** framework preset.
+
+3. **Configure Build Settings**:
+   - **Framework Preset**: `Vite` (Auto-detected)
+   - **Build Command**: `npm run build`
+   - **Output Directory**: `dist`
+   - **Install Command**: `npm install`
+
+4. **Set Environment Variables**:
+   Under **Environment Variables** in the Vercel project configuration, add:
+   | Key | Description | Example Value |
+   |---|---|---|
+   | `GEMINI_API_KEY` | Required for AI caption enhancement & hashtag generation | `AIzaSy...` |
+   | `NODE_ENV` | Environment identifier | `production` |
+   | `APP_URL` | Your public production URL | `https://your-samp-app.vercel.app` |
+
+5. **Deploy**:
+   Click **Deploy**. Your SAMP instance is live globally with lightning-fast CDN frontend delivery and serverless API execution!
+
+---
+
+### Method 2: Deploying via Vercel CLI
+
+You can deploy directly from your local terminal using the official Vercel CLI:
+
+```bash
+# 1. Install Vercel CLI globally
+npm install -g vercel
+
+# 2. Authenticate with your Vercel account
+vercel login
+
+# 3. Deploy preview build
+vercel
+
+# 4. Deploy directly to production
+vercel --prod
+```
+
+When prompted by the CLI:
+- **Set up and deploy?** [Y]
+- **Which scope?** [Your account]
+- **Link to existing project?** [N]
+- **Project name?** `samp-platform`
+- **Directory located?** `./`
+- **Want to modify settings?** [N] (Settings are automatically loaded from `vercel.json`)
+
+---
+
+### Vercel Serverless Architecture Details
+
+- **`vercel.json`**: Configures edge rewrites so `/api/*` requests route to the `api/index.ts` serverless function handler, while all client routes fall through to `dist/index.html` for client-side routing.
+- **Serverless API Adapter (`api/index.ts`)**: Wraps the full Express backend so all REST endpoints (`/api/auth/*`, `/api/accounts/*`, `/api/posts/*`, `/api/ai/*`, `/api/analytics/*`, `/api/automations/*`, etc.) execute on Vercel Serverless Functions.
+- **State Resilience**: In serverless environments, data storage gracefully leverages `/tmp/data` with in-memory fallbacks to prevent read-only filesystem errors.
 
 ---
 
