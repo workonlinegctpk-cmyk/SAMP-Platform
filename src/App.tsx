@@ -11,7 +11,8 @@ import {
   EvergreenQueue, 
   InboxMessage, 
   AnalyticsSummary, 
-  PlatformMetric 
+  PlatformMetric,
+  UserProfile
 } from './types';
 import { api } from './services/api';
 import { Navbar } from './components/Navbar';
@@ -25,9 +26,14 @@ import { SocialInbox } from './components/SocialInbox';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { DatabaseSchemaViewer } from './components/DatabaseSchemaViewer';
 import { GitHubDeployModal } from './components/GitHubDeployModal';
+import { AuthModal } from './components/AuthModal';
+import { useToast } from './components/Toast';
 
 export default function App() {
+  const { showToast, showConfirm } = useToast();
   const [currentTab, setCurrentTab] = useState<TabType>('dashboard');
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [accounts, setAccounts] = useState<SocialAccount[]>([]);
   const [posts, setPosts] = useState<ScheduledPost[]>([]);
   const [rssList, setRssList] = useState<RssFeedAutomation[]>([]);
@@ -38,13 +44,14 @@ export default function App() {
   
   const [isComposerOpen, setIsComposerOpen] = useState<boolean>(false);
   const [isGitHubModalOpen, setIsGitHubModalOpen] = useState<boolean>(false);
-  const [workspace, setWorkspace] = useState<string>('SAMP Global Agency Workspace');
+  const [workspace, setWorkspace] = useState<string>('SAMP Primary Production Workspace');
   const [loading, setLoading] = useState<boolean>(true);
 
   // Load all data from full-stack backend
   const loadData = useCallback(async () => {
     try {
       const [
+        user,
         accs, 
         psts, 
         rss, 
@@ -53,6 +60,7 @@ export default function App() {
         anlyt, 
         metr
       ] = await Promise.all([
+        api.getCurrentUser().catch(() => null),
         api.getAccounts().catch(() => []),
         api.getPosts().catch(() => []),
         api.getRssAutomations().catch(() => []),
@@ -62,6 +70,10 @@ export default function App() {
         api.getPlatformMetrics().catch(() => []),
       ]);
 
+      if (user) {
+        setCurrentUser(user);
+        if (user.workspaceName) setWorkspace(user.workspaceName);
+      }
       setAccounts(accs);
       setPosts(psts);
       setRssList(rss);
@@ -87,6 +99,7 @@ export default function App() {
   const handlePostCreated = (newPost: ScheduledPost) => {
     setPosts((prev) => [newPost, ...prev]);
     setIsComposerOpen(false);
+    showToast('success', 'Post Scheduled', 'Post successfully queued for dispatch.');
     loadData();
   };
 
@@ -94,49 +107,68 @@ export default function App() {
     try {
       const updated = await api.publishNow(id);
       setPosts((prev) => prev.map((p) => (p.id === id ? updated : p)));
+      showToast('success', 'Post Published', 'Post dispatched immediately to target channels.');
       loadData();
     } catch (err: any) {
-      alert(err.message || 'Failed to dispatch post');
+      showToast('error', 'Publish Failed', err.message || 'Failed to dispatch post');
     }
   };
 
-  const handleDeletePost = async (id: string) => {
-    if (!confirm('Are you sure you want to remove this post?')) return;
-    try {
-      await api.deletePost(id);
-      setPosts((prev) => prev.filter((p) => p.id !== id));
-    } catch (err: any) {
-      alert(err.message || 'Failed to delete post');
-    }
+  const handleDeletePost = (id: string) => {
+    showConfirm({
+      title: 'Delete Scheduled Post',
+      message: 'Are you sure you want to remove this post from the scheduling queue?',
+      confirmLabel: 'Delete Post',
+      isDestructive: true,
+      onConfirm: async () => {
+        try {
+          await api.deletePost(id);
+          setPosts((prev) => prev.filter((p) => p.id !== id));
+          showToast('info', 'Post Removed', 'Scheduled item has been deleted.');
+        } catch (err: any) {
+          showToast('error', 'Delete Failed', err.message || 'Failed to delete post');
+        }
+      },
+    });
   };
 
   const handleAddAccount = async (data: any) => {
     try {
       const created = await api.addAccount(data);
       setAccounts((prev) => [...prev, created]);
+      showToast('success', 'Channel Connected', `${created.name} (@${created.username}) is now active.`);
       loadData();
     } catch (err: any) {
-      alert(err.message || 'Failed to add account');
+      showToast('error', 'Connection Error', err.message || 'Failed to add account');
     }
   };
 
-  const handleDeleteAccount = async (id: string) => {
-    if (!confirm('Disconnect this social channel?')) return;
-    try {
-      await api.deleteAccount(id);
-      setAccounts((prev) => prev.filter((a) => a.id !== id));
-      loadData();
-    } catch (err: any) {
-      alert(err.message || 'Failed to delete account');
-    }
+  const handleDeleteAccount = (id: string) => {
+    showConfirm({
+      title: 'Disconnect Channel',
+      message: 'Are you sure you want to disconnect this social channel? Active schedules for this channel may pause.',
+      confirmLabel: 'Disconnect',
+      isDestructive: true,
+      onConfirm: async () => {
+        try {
+          await api.deleteAccount(id);
+          setAccounts((prev) => prev.filter((a) => a.id !== id));
+          showToast('info', 'Channel Disconnected', 'Account credentials removed.');
+          loadData();
+        } catch (err: any) {
+          showToast('error', 'Disconnect Failed', err.message || 'Failed to delete account');
+        }
+      },
+    });
   };
 
   const handleCreateRss = async (data: any) => {
     try {
       const created = await api.createRssAutomation(data);
       setRssList((prev) => [...prev, created]);
+      showToast('success', 'RSS Automation Active', `Monitoring ${created.name} for new articles.`);
     } catch (err: any) {
-      alert(err.message || 'Failed to save RSS feed');
+      showToast('error', 'RSS Setup Failed', err.message || 'Failed to save RSS feed');
     }
   };
 
@@ -144,8 +176,9 @@ export default function App() {
     try {
       await api.deleteRssAutomation(id);
       setRssList((prev) => prev.filter((r) => r.id !== id));
+      showToast('info', 'Feed Removed', 'RSS automation removed.');
     } catch (err: any) {
-      alert(err.message || 'Failed to remove RSS feed');
+      showToast('error', 'Removal Failed', err.message || 'Failed to remove RSS feed');
     }
   };
 
@@ -153,8 +186,9 @@ export default function App() {
     try {
       const created = await api.createEvergreenQueue(data);
       setEvergreenList((prev) => [...prev, created]);
+      showToast('success', 'Evergreen Queue Created', `Recycling loop set to every ${created.intervalHours}h.`);
     } catch (err: any) {
-      alert(err.message || 'Failed to create queue');
+      showToast('error', 'Queue Creation Failed', err.message || 'Failed to create queue');
     }
   };
 
@@ -162,17 +196,19 @@ export default function App() {
     try {
       await api.deleteEvergreenQueue(id);
       setEvergreenList((prev) => prev.filter((q) => q.id !== id));
+      showToast('info', 'Queue Removed', 'Evergreen loop removed.');
     } catch (err: any) {
-      alert(err.message || 'Failed to remove queue');
+      showToast('error', 'Removal Failed', err.message || 'Failed to remove queue');
     }
   };
 
   const handleReplyMessage = async (id: string, text: string) => {
     try {
       await api.replyToMessage(id, text);
+      showToast('success', 'Reply Sent', 'Direct response synchronized to social network.');
       loadData();
     } catch (err: any) {
-      alert(err.message || 'Failed to dispatch reply');
+      showToast('error', 'Reply Error', err.message || 'Failed to dispatch reply');
     }
   };
 
@@ -185,6 +221,36 @@ export default function App() {
     } catch (err) {
       console.error(err);
     }
+  };
+
+  const handleLogout = async () => {
+    await api.logout();
+    setCurrentUser(null);
+    showToast('info', 'Signed Out', 'You have been logged out of your SAMP account.');
+    setIsAuthModalOpen(true);
+  };
+
+  const handleResetData = () => {
+    showConfirm({
+      title: 'Reset to Clean State',
+      message: 'Purge all test channels, posts, automations, and inbox data to maintain a pristine zero-data state? This action is immediate.',
+      confirmLabel: 'Purge Platform Data',
+      isDestructive: true,
+      onConfirm: async () => {
+        try {
+          await api.resetPlatformData();
+          setAccounts([]);
+          setPosts([]);
+          setRssList([]);
+          setEvergreenList([]);
+          setInboxMessages([]);
+          loadData();
+          showToast('success', 'Zero Demo State', 'Platform storage reset to clean slate.');
+        } catch (err: any) {
+          showToast('error', 'Reset Failed', err.message || 'Reset failed');
+        }
+      },
+    });
   };
 
   const unreadCount = inboxMessages.filter((m) => !m.isRead).length;
@@ -210,8 +276,12 @@ export default function App() {
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         {/* Top Navbar */}
         <Navbar
+          currentUser={currentUser}
           onOpenComposer={() => setIsComposerOpen(true)}
           onOpenGitHubModal={() => setIsGitHubModalOpen(true)}
+          onOpenAuthModal={() => setIsAuthModalOpen(true)}
+          onLogout={handleLogout}
+          onResetData={handleResetData}
           unreadCount={unreadCount}
           currentWorkspace={workspace}
           onSelectWorkspace={setWorkspace}
@@ -297,6 +367,17 @@ export default function App() {
       <GitHubDeployModal
         isOpen={isGitHubModalOpen}
         onClose={() => setIsGitHubModalOpen(false)}
+      />
+
+      {/* USER ACCOUNT CREATION / AUTH MODAL */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onUserAuthenticated={(user) => {
+          setCurrentUser(user);
+          if (user.workspaceName) setWorkspace(user.workspaceName);
+          loadData();
+        }}
       />
     </div>
   );

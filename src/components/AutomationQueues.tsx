@@ -282,17 +282,25 @@ export const AutomationQueues: React.FC<AutomationQueuesProps> = ({
 
           <div className="flex items-center justify-between pt-3 border-t border-slate-800 text-xs">
             <span className="text-slate-400">Need a template to get started?</span>
-            <a
-              href="#download-template"
-              onClick={(e) => {
-                e.preventDefault();
-                alert('Sample CSV schema: Content, Networks, ScheduledDate, FirstComment, MediaUrl');
+            <button
+              type="button"
+              onClick={() => {
+                const sampleCsv = `Content,Networks,ScheduledDate,FirstComment,MediaUrl\n"🚀 Launching our new product line today! Check out the details at our website.","instagram,twitter,linkedin","2026-10-25T14:00:00.000Z","#LaunchDay #Innovation","https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1000"\n"💡 Pro tip: Automate your social media scheduling to maintain consistency without daily manual work.","twitter,linkedin","2026-10-26T16:30:00.000Z","#MarketingTips #Automation",""\n"🎉 Celebrating 10,000 community members! Thank you for being part of our journey.","instagram,facebook,tiktok","2026-10-27T18:00:00.000Z","#Milestone #Community","https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1000"`;
+                const blob = new Blob([sampleCsv], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'samp_bulk_schedule_template.csv';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
               }}
-              className="text-indigo-400 hover:text-indigo-300 font-bold flex items-center gap-1"
+              className="text-indigo-400 hover:text-indigo-300 font-bold flex items-center gap-1 cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Download SAMP CSV Template</span>
-            </a>
+            </button>
           </div>
         </div>
       )}

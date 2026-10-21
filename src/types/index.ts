@@ -18,6 +18,26 @@ export type PostStatus =
 
 export type AccountStatus = 'active' | 'expired' | 'rate_limited' | 'disconnected';
 
+export interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  company?: string;
+  workspaceName: string;
+  role: 'owner' | 'admin' | 'manager';
+  avatarUrl: string;
+  createdAt: string;
+}
+
+export interface AccountCredentials {
+  appId?: string;
+  appSecret?: string;
+  accessToken: string;
+  pageOrChannelId?: string;
+  webhookSecret?: string;
+  scopes?: string[];
+}
+
 export interface SocialAccount {
   id: string;
   platform: SocialPlatform;
@@ -29,6 +49,8 @@ export interface SocialAccount {
   followersCount: number;
   tokenExpiresAt: string;
   connectedAt: string;
+  credentials?: AccountCredentials;
+  lastHealthCheck?: string;
 }
 
 export interface MediaItem {

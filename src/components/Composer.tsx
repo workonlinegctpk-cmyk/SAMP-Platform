@@ -29,8 +29,11 @@ import {
   Bookmark, 
   Flame,
   Globe,
-  MoreHorizontal
+  MoreHorizontal,
+  Upload,
+  FileText
 } from 'lucide-react';
+import { useToast } from './Toast';
 
 interface ComposerProps {
   accounts: SocialAccount[];
@@ -43,6 +46,7 @@ export const Composer: React.FC<ComposerProps> = ({
   onPostCreated, 
   onClose 
 }) => {
+  const { showToast } = useToast();
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>(
     accounts.slice(0, 3).map((a) => a.id)
   );
@@ -128,6 +132,68 @@ export const Composer: React.FC<ComposerProps> = ({
     setMediaList((prev) => prev.filter((m) => m.id !== id));
   };
 
+  const [showGallery, setShowGallery] = useState<boolean>(false);
+  const [templateMenuOpen, setTemplateMenuOpen] = useState<boolean>(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const curatedStockAssets = [
+    { url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1000&q=80', label: 'Tech Wave' },
+    { url: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1000&q=80', label: 'Analytics' },
+    { url: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1000&q=80', label: 'Growth Data' },
+    { url: 'https://images.unsplash.com/photo-1542744094-3a31f272c490?auto=format&fit=crop&w=1000&q=80', label: 'Strategy' },
+    { url: 'https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?auto=format&fit=crop&w=1000&q=80', label: 'Creative Studio' },
+    { url: 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=1000&q=80', label: 'SaaS Platform' },
+  ];
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const result = event.target?.result as string;
+        const isVideo = file.type.startsWith('video');
+        const newItem: MediaItem = {
+          id: `med_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          url: result,
+          type: isVideo ? 'video' : 'image',
+          name: file.name,
+          sizeBytes: file.size,
+          aspectRatio: isVideo ? '9:16' : '16:9',
+        };
+        setMediaList((prev) => [...prev, newItem]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleSelectCuratedAsset = (url: string, name: string) => {
+    const newItem: MediaItem = {
+      id: `med_${Date.now()}`,
+      url,
+      type: 'image',
+      name: `${name.toLowerCase().replace(/\s+/g, '_')}.jpg`,
+      sizeBytes: 940000,
+      aspectRatio: '16:9'
+    };
+    setMediaList((prev) => [...prev, newItem]);
+    setShowGallery(false);
+  };
+
+  const applyTemplate = (t: 'launch' | 'tips' | 'story' | 'poll') => {
+    if (t === 'launch') {
+      setContent('🚀 Big News: We just unveiled our next-generation release! Discover how this will transform your social media automation workflow.\n\n👉 Learn more at the link in bio.\n\n#ProductLaunch #Innovation #MarketingAutomation');
+    } else if (t === 'tips') {
+      setContent('💡 3 High-Impact Tips to 10x your social reach this month:\n\n1. Maintain consistent timeslot queuing.\n2. Engage within the first 30 minutes of posting.\n3. Leverage automated first comments for hashtags.\n\nWhich tactic works best for your team?');
+    } else if (t === 'story') {
+      setContent('✨ Client Spotlight: Scaling from 5,000 to 120,000 monthly impressions in under 90 days.\n\nHere is the exact framework we used to streamline multi-platform publishing.\n\n#CaseStudy #GrowthMarketing #BrandBuilding');
+    } else if (t === 'poll') {
+      setContent('📊 Quick Poll for creators and founders:\n\nWhat is your biggest bottleneck in scaling content this quarter?\nA) Video editing\nB) Writing captions & hooks\nC) Cross-posting to 6+ channels\n\nDrop your vote in the comments below! 👇');
+    }
+    setTemplateMenuOpen(false);
+  };
+
   const applyAiHook = (type: 'hook' | 'hashtags' | 'cta' | 'polish') => {
     if (type === 'hook') {
       setContent((prev) => `🚨 STOP SCROLLING: The secret to scaling to 500k+ reach without 12-hour workdays.\n\n${prev}`);
@@ -143,11 +209,11 @@ export const Composer: React.FC<ComposerProps> = ({
 
   const handleSubmit = async () => {
     if (selectedAccountIds.length === 0) {
-      alert('Please select at least one social account');
+      showToast('warning', 'Channel Required', 'Please select at least one social media channel.');
       return;
     }
     if (!content.trim() && mediaList.length === 0) {
-      alert('Please provide post text content or attach media');
+      showToast('warning', 'Content Required', 'Please enter post copy or attach media items.');
       return;
     }
 
@@ -178,7 +244,7 @@ export const Composer: React.FC<ComposerProps> = ({
       onPostCreated(created);
       if (onClose) onClose();
     } catch (err: any) {
-      alert(err.message || 'Error creating scheduled post');
+      showToast('error', 'Publishing Error', err.message || 'Error creating scheduled post');
     } finally {
       setIsSubmitting(false);
     }
@@ -221,39 +287,69 @@ export const Composer: React.FC<ComposerProps> = ({
                 <span>Select Target Channels</span>
                 <span className="text-indigo-400 font-mono">({selectedAccountIds.length}/{accounts.length})</span>
               </span>
-              <button
-                onClick={handleSelectAll}
-                className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
-              >
-                {selectedAccountIds.length === accounts.length ? 'Deselect All' : 'Select All'}
-              </button>
+              {accounts.length > 0 && (
+                <button
+                  onClick={handleSelectAll}
+                  className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
+                >
+                  {selectedAccountIds.length === accounts.length ? 'Deselect All' : 'Select All'}
+                </button>
+              )}
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              {accounts.map((acc) => {
-                const isSelected = selectedAccountIds.includes(acc.id);
-                return (
-                  <button
-                    key={acc.id}
-                    onClick={() => handleToggleAccount(acc.id)}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
-                      isSelected
-                        ? 'bg-indigo-600/20 border-indigo-500 text-white shadow-sm ring-1 ring-indigo-500/40'
-                        : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:border-slate-700'
-                    }`}
-                  >
-                    <img
-                      src={acc.avatarUrl}
-                      alt={acc.name}
-                      className="w-5 h-5 rounded-full object-cover"
-                    />
-                    <span className="capitalize">{acc.platform}</span>
-                    <span className="text-slate-400 text-[10px]">{acc.username}</span>
-                    {isSelected && <Check className="w-3.5 h-3.5 text-indigo-400 ml-1" />}
-                  </button>
-                );
-              })}
-            </div>
+            {accounts.length === 0 ? (
+              <div className="p-3 bg-indigo-950/40 border border-indigo-500/30 rounded-xl space-y-2">
+                <div className="text-xs text-indigo-200">
+                  <span className="font-bold">No social channel connected yet.</span> You can still compose and preview your posts across networks:
+                </div>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {(['instagram', 'twitter', 'linkedin', 'facebook', 'tiktok'] as SocialPlatform[]).map((p) => {
+                    const isActive = activePreviewPlatform === p;
+                    return (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setActivePreviewPlatform(p)}
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold uppercase transition-all flex items-center gap-1.5 ${
+                          isActive
+                            ? 'bg-indigo-600 text-white shadow ring-1 ring-indigo-400'
+                            : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <span className="capitalize">{p}</span>
+                        {isActive && <Check className="w-3 h-3 text-white" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {accounts.map((acc) => {
+                  const isSelected = selectedAccountIds.includes(acc.id);
+                  return (
+                    <button
+                      key={acc.id}
+                      onClick={() => handleToggleAccount(acc.id)}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
+                        isSelected
+                          ? 'bg-indigo-600/20 border-indigo-500 text-white shadow-sm ring-1 ring-indigo-500/40'
+                          : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:border-slate-700'
+                      }`}
+                    >
+                      <img
+                        src={acc.avatarUrl}
+                        alt={acc.name}
+                        className="w-5 h-5 rounded-full object-cover"
+                      />
+                      <span className="capitalize">{acc.platform}</span>
+                      <span className="text-slate-400 text-[10px]">{acc.username}</span>
+                      {isSelected && <Check className="w-3.5 h-3.5 text-indigo-400 ml-1" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* 2. Format / Post Type Tabs */}
@@ -278,48 +374,91 @@ export const Composer: React.FC<ComposerProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-300">Post Caption</span>
               
-              {/* AI Assistant Quick Dropdown */}
-              <div className="relative">
-                <button
-                  onClick={() => setAiAssistantOpen(!aiAssistantOpen)}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-950/70 border border-indigo-500/40 text-xs font-semibold text-indigo-300 hover:bg-indigo-900/50 transition-colors"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>AI Copy Tools</span>
-                </button>
+              <div className="flex items-center gap-2">
+                {/* Template Menu */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setTemplateMenuOpen(!templateMenuOpen)}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-xs font-semibold text-slate-300 hover:text-white transition-colors"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Templates</span>
+                  </button>
 
-                {aiAssistantOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl py-1.5 z-50">
-                    <button
-                      onClick={() => applyAiHook('hook')}
-                      className="w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 flex items-center gap-2"
-                    >
-                      <Flame className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Add Viral Hook</span>
-                    </button>
-                    <button
-                      onClick={() => applyAiHook('hashtags')}
-                      className="w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 flex items-center gap-2"
-                    >
-                      <Hash className="w-3.5 h-3.5 text-indigo-400" />
-                      <span>Auto-Generate Hashtags</span>
-                    </button>
-                    <button
-                      onClick={() => applyAiHook('cta')}
-                      className="w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 flex items-center gap-2"
-                    >
-                      <Send className="w-3.5 h-3.5 text-cyan-400" />
-                      <span>Add Strong CTA</span>
-                    </button>
-                    <button
-                      onClick={() => applyAiHook('polish')}
-                      className="w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 flex items-center gap-2"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Clean & Format Text</span>
-                    </button>
-                  </div>
-                )}
+                  {templateMenuOpen && (
+                    <div className="absolute right-0 mt-2 w-56 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl py-1.5 z-50">
+                      <button
+                        onClick={() => applyTemplate('launch')}
+                        className="w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 flex items-center gap-2"
+                      >
+                        <span>🚀 Product Announcement</span>
+                      </button>
+                      <button
+                        onClick={() => applyTemplate('tips')}
+                        className="w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 flex items-center gap-2"
+                      >
+                        <span>💡 High-Impact Tips List</span>
+                      </button>
+                      <button
+                        onClick={() => applyTemplate('story')}
+                        className="w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 flex items-center gap-2"
+                      >
+                        <span>✨ Client Spotlight / Story</span>
+                      </button>
+                      <button
+                        onClick={() => applyTemplate('poll')}
+                        className="w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 flex items-center gap-2"
+                      >
+                        <span>📊 Engagement Question / Poll</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* AI Assistant Quick Dropdown */}
+                <div className="relative">
+                  <button
+                    onClick={() => setAiAssistantOpen(!aiAssistantOpen)}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-950/70 border border-indigo-500/40 text-xs font-semibold text-indigo-300 hover:bg-indigo-900/50 transition-colors"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>AI Copy Tools</span>
+                  </button>
+
+                  {aiAssistantOpen && (
+                    <div className="absolute right-0 mt-2 w-56 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl py-1.5 z-50">
+                      <button
+                        onClick={() => applyAiHook('hook')}
+                        className="w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 flex items-center gap-2"
+                      >
+                        <Flame className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Add Viral Hook</span>
+                      </button>
+                      <button
+                        onClick={() => applyAiHook('hashtags')}
+                        className="w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 flex items-center gap-2"
+                      >
+                        <Hash className="w-3.5 h-3.5 text-indigo-400" />
+                        <span>Auto-Generate Hashtags</span>
+                      </button>
+                      <button
+                        onClick={() => applyAiHook('cta')}
+                        className="w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 flex items-center gap-2"
+                      >
+                        <Send className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>Add Strong CTA</span>
+                      </button>
+                      <button
+                        onClick={() => applyAiHook('polish')}
+                        className="w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 flex items-center gap-2"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Clean & Format Text</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -333,7 +472,7 @@ export const Composer: React.FC<ComposerProps> = ({
 
             {/* Character Counters per Platform */}
             <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-slate-400">
-              {activePlatforms.map((plat) => {
+              {(activePlatforms.length > 0 ? activePlatforms : ['instagram', 'twitter', 'linkedin'] as SocialPlatform[]).map((plat) => {
                 const limit = charLimits[plat];
                 const count = content.length;
                 const remaining = limit - count;
@@ -359,13 +498,34 @@ export const Composer: React.FC<ComposerProps> = ({
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-semibold text-slate-300">Media Attachments</span>
-                <button
-                  onClick={handleAddMedia}
-                  className="flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 font-semibold"
-                >
-                  <ImageIcon className="w-3.5 h-3.5" />
-                  <span>+ Attach Media</span>
-                </button>
+                
+                <div className="flex items-center gap-2">
+                  {/* Hidden File Input for Real Local Uploads */}
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileUpload}
+                    multiple
+                    accept="image/*,video/*"
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 font-semibold px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 transition-all shadow-sm"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Upload Local File</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowGallery(true)}
+                    className="flex items-center gap-1.5 text-xs text-cyan-400 hover:text-cyan-300 font-semibold px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 transition-all shadow-sm"
+                  >
+                    <ImageIcon className="w-3.5 h-3.5" />
+                    <span>Curated Stock</span>
+                  </button>
+                </div>
               </div>
 
               {mediaList.length > 0 ? (
@@ -828,6 +988,56 @@ export const Composer: React.FC<ComposerProps> = ({
           </div>
         </div>
       </div>
+      {/* CURATED STOCK ASSET GALLERY MODAL */}
+      {showGallery && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-6 max-w-2xl w-full shadow-2xl relative">
+            <button
+              onClick={() => setShowGallery(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-2 mb-1.5">
+              <ImageIcon className="w-5 h-5 text-indigo-400" />
+              <h2 className="text-base font-bold text-white">Curated Royalty-Free Media Library</h2>
+            </div>
+            <p className="text-xs text-slate-400 mb-4">
+              Click any high-resolution creative asset to attach it instantly to your multi-channel post.
+            </p>
+
+            <div className="grid grid-cols-3 gap-3 max-h-96 overflow-y-auto">
+              {curatedStockAssets.map((asset, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => handleSelectCuratedAsset(asset.url, asset.label)}
+                  className="group relative rounded-xl overflow-hidden border border-slate-800 bg-slate-900 aspect-video cursor-pointer hover:border-indigo-500 transition-all shadow"
+                >
+                  <img
+                    src={asset.url}
+                    alt={asset.label}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-2">
+                    <span className="text-[11px] font-bold text-white truncate">{asset.label}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end pt-4 border-t border-slate-800 mt-4">
+              <button
+                type="button"
+                onClick={() => setShowGallery(false)}
+                className="px-4 py-2 rounded-lg bg-slate-800 text-xs font-semibold text-slate-300 hover:text-white"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

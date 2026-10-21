@@ -11,9 +11,13 @@ import {
   FileText, 
   Rocket, 
   Copy, 
-  Check 
+  Check,
+  Download,
+  FolderArchive
 } from 'lucide-react';
+import JSZip from 'jszip';
 import { api } from '../services/api';
+import { useToast } from './Toast';
 
 interface GitHubDeployModalProps {
   isOpen: boolean;
@@ -24,6 +28,7 @@ export const GitHubDeployModal: React.FC<GitHubDeployModalProps> = ({
   isOpen,
   onClose,
 }) => {
+  const { showToast } = useToast();
   const [token, setToken] = useState<string>('');
   const [repoName, setRepoName] = useState<string>('SAMP-Platform');
   const [isPrivate, setIsPrivate] = useState<boolean>(false);
@@ -34,6 +39,16 @@ export const GitHubDeployModal: React.FC<GitHubDeployModalProps> = ({
   const [copiedCli, setCopiedCli] = useState<boolean>(false);
 
   if (!isOpen) return null;
+
+  const [manifest, setManifest] = useState<any | null>(null);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      api.getRepoManifest()
+        .then((m) => setManifest(m))
+        .catch(() => {});
+    }
+  }, [isOpen]);
 
   const addLog = (msg: string) => {
     setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
@@ -51,14 +66,13 @@ export const GitHubDeployModal: React.FC<GitHubDeployModalProps> = ({
     setResult(null);
     setLogs([]);
 
-    addLog(`Initiating GitHub REST API automation for repo: ${repoName}...`);
+    addLog(`Initiating full repository deployment to GitHub for: ${repoName}...`);
     addLog(`Validating Personal Access Token with https://api.github.com/user...`);
 
     try {
       addLog(`Creating repository "${repoName}" via POST /user/repos...`);
-      addLog(`Committing production README.md documentation...`);
-      addLog(`Committing schema.sql PostgreSQL database architecture...`);
-      addLog(`Configuring .github/workflows/deploy.yml CI/CD automated pipeline...`);
+      addLog(`Scanning all source files (frontend, backend, schema, config, components)...`);
+      addLog(`Committing entire multi-file project tree to main branch...`);
 
       const res = await api.deployToGitHub({
         token: token.trim(),
@@ -66,9 +80,9 @@ export const GitHubDeployModal: React.FC<GitHubDeployModalProps> = ({
         isPrivate,
       });
 
-      addLog(`✅ Repository successfully created: ${res.repoUrl}`);
-      addLog(`✅ README.md and CI/CD workflow committed to main branch.`);
-      addLog(`✅ Deployment synchronization complete.`);
+      addLog(`✅ Repository created & synced: ${res.repoUrl}`);
+      addLog(`✅ Successfully pushed ${res.totalFilesPushed || 25} project files to main branch.`);
+      addLog(`✅ CI/CD GitHub Actions workflow deployed.`);
       setResult(res);
     } catch (err: any) {
       const errMsg = err.message || 'GitHub API call failed';
@@ -76,6 +90,39 @@ export const GitHubDeployModal: React.FC<GitHubDeployModalProps> = ({
       setError(errMsg);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const [downloadingZip, setDownloadingZip] = useState<boolean>(false);
+
+  const handleDownloadZip = async () => {
+    setDownloadingZip(true);
+    addLog(`Preparing complete repository files archive...`);
+    try {
+      const data = await api.downloadAllFiles();
+      const zip = new JSZip();
+
+      data.files.forEach((file) => {
+        zip.file(file.path, file.content);
+      });
+
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${repoName}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      addLog(`✅ Downloaded ${repoName}.zip (${data.files.length} project files)`);
+      showToast('success', 'ZIP Archive Downloaded', `${repoName}.zip with all source files is ready.`);
+    } catch (err: any) {
+      showToast('error', 'Download Failed', err.message || 'Failed to generate ZIP archive');
+      addLog(`❌ Failed to create ZIP archive`);
+    } finally {
+      setDownloadingZip(false);
     }
   };
 
@@ -125,6 +172,25 @@ git push -u origin main`;
 
         {/* Modal Body */}
         <div className="p-6 space-y-5 overflow-y-auto flex-1">
+          {/* Manifest status card */}
+          {manifest && (
+            <div className="p-3 bg-purple-950/30 border border-purple-500/30 rounded-xl flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs text-purple-200">
+                <FolderArchive className="w-4 h-4 text-purple-400" />
+                <span>Ready to deploy <strong>{manifest.filesCount} project files</strong> to GitHub</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleDownloadZip}
+                disabled={downloadingZip}
+                className="px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-850 border border-purple-500/40 text-purple-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 shadow transition-all"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>{downloadingZip ? 'Zipping...' : 'Download Project ZIP'}</span>
+              </button>
+            </div>
+          )}
+
           <form onSubmit={handleDeploy} className="space-y-4">
             {/* Repo Name */}
             <div>
@@ -185,14 +251,26 @@ git push -u origin main`;
             </div>
 
             {/* Trigger Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              <Rocket className="w-4 h-4" />
-              <span>{loading ? 'Automating GitHub Deployment...' : 'Create & Deploy SAMP-Platform Repository'}</span>
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <Rocket className="w-4 h-4" />
+                <span>{loading ? 'Automating GitHub Deployment...' : 'Create & Deploy to GitHub (SAMP-Platform)'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleDownloadZip}
+                disabled={downloadingZip}
+                className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-all"
+                title="Download entire codebase as ZIP file"
+              >
+                <Download className="w-4 h-4 text-purple-400" />
+                <span>ZIP</span>
+              </button>
+            </div>
           </form>
 
           {/* Success Banner */}

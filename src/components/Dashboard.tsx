@@ -268,36 +268,50 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           <div className="space-y-2.5">
-            {accounts.slice(0, 5).map((acc) => (
-              <div
-                key={acc.id}
-                className="flex items-center justify-between p-3 rounded-xl bg-slate-900/80 border border-slate-800/80 hover:border-slate-700 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <img
-                    src={acc.avatarUrl}
-                    alt={acc.name}
-                    className="w-8 h-8 rounded-full object-cover ring-1 ring-slate-700"
-                  />
-                  <div>
-                    <div className="text-xs font-bold text-slate-200 capitalize flex items-center gap-1.5">
-                      <span>{acc.name}</span>
-                      <span className="text-[10px] text-slate-400 font-normal">{acc.username}</span>
-                    </div>
-                    <div className="text-[10px] text-slate-400">
-                      {acc.followersCount.toLocaleString()} followers
+            {accounts.length === 0 ? (
+              <div className="p-6 text-center border border-dashed border-slate-800 rounded-xl">
+                <Share2 className="w-7 h-7 text-slate-600 mx-auto mb-2" />
+                <div className="text-xs text-slate-300 font-bold">No Social Channels Connected</div>
+                <div className="text-[11px] text-slate-400 mt-0.5">Link your Instagram, X, LinkedIn or Facebook accounts</div>
+                <button
+                  onClick={onOpenAccounts}
+                  className="mt-3 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow"
+                >
+                  + Connect Channel
+                </button>
+              </div>
+            ) : (
+              accounts.slice(0, 5).map((acc) => (
+                <div
+                  key={acc.id}
+                  className="flex items-center justify-between p-3 rounded-xl bg-slate-900/80 border border-slate-800/80 hover:border-slate-700 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={acc.avatarUrl}
+                      alt={acc.name}
+                      className="w-8 h-8 rounded-full object-cover ring-1 ring-slate-700"
+                    />
+                    <div>
+                      <div className="text-xs font-bold text-slate-200 capitalize flex items-center gap-1.5">
+                        <span>{acc.name}</span>
+                        <span className="text-[10px] text-slate-400 font-normal">{acc.username}</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400">
+                        {acc.followersCount.toLocaleString()} followers
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-2">
-                  <span className="flex items-center gap-1 text-[11px] text-emerald-400 font-semibold bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                    <span>Active</span>
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="flex items-center gap-1 text-[11px] text-emerald-400 font-semibold bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                      <span>Active</span>
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -316,65 +330,79 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </span>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-slate-800 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-                <th className="pb-3">Post Content</th>
-                <th className="pb-3">Networks</th>
-                <th className="pb-3">Scheduled / Published</th>
-                <th className="pb-3">Status</th>
-                <th className="pb-3 text-right">Delivery Log</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60">
-              {posts.slice(0, 5).map((p) => (
-                <tr key={p.id} className="hover:bg-slate-900/50 transition-colors">
-                  <td className="py-3 pr-4 max-w-sm">
-                    <div className="font-medium text-slate-200 truncate">{p.content}</div>
-                    {p.tags.length > 0 && (
-                      <div className="text-[10px] text-indigo-400 mt-0.5">
-                        {p.tags.map((t) => `#${t}`).join(' ')}
-                      </div>
-                    )}
-                  </td>
-                  <td className="py-3 pr-4">
-                    <div className="flex items-center gap-1">
-                      {p.targetPlatforms.map((plat) => (
-                        <span
-                          key={plat}
-                          className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-slate-900 border border-slate-800 text-slate-300"
-                        >
-                          {plat}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="py-3 pr-4 text-slate-400 font-mono text-[11px]">
-                    {p.publishedAt ? new Date(p.publishedAt).toLocaleDateString() : new Date(p.scheduledFor).toLocaleDateString()}
-                  </td>
-                  <td className="py-3 pr-4">
-                    <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                        p.status === 'published'
-                          ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-500/40'
-                          : 'bg-amber-950/80 text-amber-300 border border-amber-500/40'
-                      }`}
-                    >
-                      {p.status}
-                    </span>
-                  </td>
-                  <td className="py-3 text-right">
-                    <span className="text-[11px] font-mono text-emerald-400 flex items-center justify-end gap-1">
-                      <Check className="w-3.5 h-3.5" />
-                      <span>HTTP 200 OK</span>
-                    </span>
-                  </td>
+        {posts.length === 0 ? (
+          <div className="p-8 text-center border border-dashed border-slate-800 rounded-xl">
+            <Activity className="w-7 h-7 text-slate-600 mx-auto mb-2" />
+            <div className="text-xs text-slate-300 font-bold">No Deliveries Yet</div>
+            <div className="text-[11px] text-slate-400 mt-0.5">Posts dispatched in real time will appear with latency and HTTP status here.</div>
+            <button
+              onClick={onOpenComposer}
+              className="mt-3 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow"
+            >
+              + Create First Post
+            </button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-slate-800 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                  <th className="pb-3">Post Content</th>
+                  <th className="pb-3">Networks</th>
+                  <th className="pb-3">Scheduled / Published</th>
+                  <th className="pb-3">Status</th>
+                  <th className="pb-3 text-right">Delivery Log</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60">
+                {posts.slice(0, 5).map((p) => (
+                  <tr key={p.id} className="hover:bg-slate-900/50 transition-colors">
+                    <td className="py-3 pr-4 max-w-sm">
+                      <div className="font-medium text-slate-200 truncate">{p.content}</div>
+                      {p.tags.length > 0 && (
+                        <div className="text-[10px] text-indigo-400 mt-0.5">
+                          {p.tags.map((t) => `#${t}`).join(' ')}
+                        </div>
+                      )}
+                    </td>
+                    <td className="py-3 pr-4">
+                      <div className="flex items-center gap-1">
+                        {p.targetPlatforms.map((plat) => (
+                          <span
+                            key={plat}
+                            className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-slate-900 border border-slate-800 text-slate-300"
+                          >
+                            {plat}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="py-3 pr-4 text-slate-400 font-mono text-[11px]">
+                      {p.publishedAt ? new Date(p.publishedAt).toLocaleDateString() : new Date(p.scheduledFor).toLocaleDateString()}
+                    </td>
+                    <td className="py-3 pr-4">
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                          p.status === 'published'
+                            ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-500/40'
+                            : 'bg-amber-950/80 text-amber-300 border border-amber-500/40'
+                        }`}
+                      >
+                        {p.status}
+                      </span>
+                    </td>
+                    <td className="py-3 text-right">
+                      <span className="text-[11px] font-mono text-emerald-400 flex items-center justify-end gap-1">
+                        <Check className="w-3.5 h-3.5" />
+                        <span>HTTP 200 OK</span>
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

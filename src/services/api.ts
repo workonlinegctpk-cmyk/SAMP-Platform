@@ -5,7 +5,9 @@ import {
   EvergreenQueue, 
   InboxMessage, 
   AnalyticsSummary, 
-  PlatformMetric 
+  PlatformMetric,
+  UserProfile,
+  AccountCredentials
 } from '../types';
 
 export const api = {
@@ -15,26 +17,104 @@ export const api = {
     return res.json();
   },
 
-  // Accounts
+  // Auth & User Account Creation
+  async getCurrentUser(): Promise<UserProfile | null> {
+    const res = await fetch('/api/auth/me');
+    if (!res.ok) return null;
+    return res.json();
+  },
+
+  async register(data: { name: string; email: string; password?: string; company?: string; workspaceName?: string; role?: string }): Promise<UserProfile> {
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Registration failed');
+    }
+    return res.json();
+  },
+
+  async login(email: string, password?: string): Promise<UserProfile> {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Login failed');
+    }
+    return res.json();
+  },
+
+  async logout(): Promise<void> {
+    await fetch('/api/auth/logout', { method: 'POST' });
+  },
+
+  async updateProfile(data: Partial<UserProfile>): Promise<UserProfile> {
+    const res = await fetch('/api/auth/profile', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to update profile');
+    return res.json();
+  },
+
+  // Social Accounts & Real Credentials Verification
   async getAccounts(): Promise<SocialAccount[]> {
     const res = await fetch('/api/accounts');
     if (!res.ok) throw new Error('Failed to load social accounts');
     return res.json();
   },
 
-  async addAccount(accountData: { platform: string; name: string; username: string; accountType?: string }): Promise<SocialAccount> {
+  async verifyCredentials(platform: string, credentials: AccountCredentials): Promise<{ valid: boolean; scopes: string[]; responseTimeMs: number }> {
+    const res = await fetch('/api/accounts/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ platform, credentials }),
+    });
+    if (!res.ok) throw new Error('Verification failed');
+    return res.json();
+  },
+
+  async addAccount(accountData: { 
+    platform: string; 
+    name: string; 
+    username: string; 
+    accountType?: string;
+    credentials?: AccountCredentials;
+  }): Promise<SocialAccount> {
     const res = await fetch('/api/accounts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(accountData),
     });
-    if (!res.ok) throw new Error('Failed to connect account');
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to connect account');
+    }
+    return res.json();
+  },
+
+  async testAccountHealth(id: string): Promise<any> {
+    const res = await fetch(`/api/accounts/${id}/test`, { method: 'POST' });
+    if (!res.ok) throw new Error('Health check failed');
     return res.json();
   },
 
   async deleteAccount(id: string): Promise<{ success: boolean }> {
     const res = await fetch(`/api/accounts/${id}`, { method: 'DELETE' });
     if (!res.ok) throw new Error('Failed to remove account');
+    return res.json();
+  },
+
+  async resetPlatformData(): Promise<{ success: boolean }> {
+    const res = await fetch('/api/platform/reset', { method: 'POST' });
+    if (!res.ok) throw new Error('Failed to reset data');
     return res.json();
   },
 
@@ -174,6 +254,19 @@ export const api = {
   async getSchema(): Promise<{ engine: string; tablesCount: number; indexesCount: number; ddl: string }> {
     const res = await fetch('/api/schema');
     if (!res.ok) throw new Error('Failed to load database schema');
+    return res.json();
+  },
+
+  // Repo Manifest
+  async getRepoManifest(): Promise<{ repoName: string; filesCount: number; files: Array<{ path: string; sizeBytes: number }> }> {
+    const res = await fetch('/api/repo/manifest');
+    if (!res.ok) throw new Error('Failed to load repo manifest');
+    return res.json();
+  },
+
+  async downloadAllFiles(): Promise<{ repoName: string; files: Array<{ path: string; content: string }> }> {
+    const res = await fetch('/api/repo/download-all');
+    if (!res.ok) throw new Error('Failed to download project files');
     return res.json();
   },
 

@@ -3,31 +3,45 @@ import {
   PlusCircle, 
   Clock, 
   GitBranch, 
-  Sparkles, 
   Bell, 
   ChevronDown, 
   CheckCircle2, 
-  Radio
+  Radio,
+  UserPlus,
+  LogOut,
+  Settings,
+  Trash2,
+  Sparkles
 } from 'lucide-react';
 import { Logo } from './Logo';
+import { UserProfile } from '../types';
 
 interface NavbarProps {
+  currentUser: UserProfile | null;
   onOpenComposer: () => void;
   onOpenGitHubModal: () => void;
+  onOpenAuthModal: () => void;
+  onLogout: () => void;
+  onResetData: () => void;
   unreadCount?: number;
   currentWorkspace?: string;
   onSelectWorkspace?: (ws: string) => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
+  currentUser,
   onOpenComposer,
   onOpenGitHubModal,
-  unreadCount = 2,
-  currentWorkspace = 'SAMP Global Agency Workspace',
+  onOpenAuthModal,
+  onLogout,
+  onResetData,
+  unreadCount = 0,
+  currentWorkspace = 'SAMP Primary Production Workspace',
   onSelectWorkspace
 }) => {
   const [time, setTime] = useState<string>('');
   const [workspaceDropdown, setWorkspaceDropdown] = useState(false);
+  const [profileDropdown, setProfileDropdown] = useState(false);
 
   useEffect(() => {
     const update = () => {
@@ -40,9 +54,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   }, []);
 
   const workspaces = [
-    'SAMP Global Agency Workspace',
-    'E-Commerce & DTC Brands',
-    'Creator Growth Hub',
+    currentUser?.workspaceName || 'SAMP Primary Production Workspace',
+    'DTC & E-Commerce Brands',
+    'Creator Growth Network',
     'Enterprise B2B Portfolio'
   ];
 
@@ -61,14 +75,16 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-slate-900/80 border border-slate-800 hover:border-slate-700 text-xs font-medium text-slate-200 transition-all shadow-sm"
           >
             <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
-            <span className="truncate max-w-[160px] sm:max-w-[220px] font-semibold">{currentWorkspace}</span>
+            <span className="truncate max-w-[160px] sm:max-w-[220px] font-semibold">
+              {currentUser?.workspaceName || currentWorkspace}
+            </span>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
           </button>
 
           {workspaceDropdown && (
             <div className="absolute left-0 mt-2 w-64 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl py-1.5 z-50">
               <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-slate-400 font-bold border-b border-slate-800/60">
-                Switch Organization / Workspace
+                Active Organization / Workspace
               </div>
               {workspaces.map((ws) => (
                 <button
@@ -78,11 +94,15 @@ export const Navbar: React.FC<NavbarProps> = ({
                     setWorkspaceDropdown(false);
                   }}
                   className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-slate-800/80 transition-colors ${
-                    currentWorkspace === ws ? 'text-indigo-400 font-semibold bg-indigo-500/10' : 'text-slate-300'
+                    (currentUser?.workspaceName || currentWorkspace) === ws
+                      ? 'text-indigo-400 font-semibold bg-indigo-500/10'
+                      : 'text-slate-300'
                   }`}
                 >
                   <span className="truncate">{ws}</span>
-                  {currentWorkspace === ws && <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400" />}
+                  {(currentUser?.workspaceName || currentWorkspace) === ws && (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400" />
+                  )}
                 </button>
               ))}
             </div>
@@ -92,7 +112,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Real-time Scheduler Engine Pulse */}
         <div className="hidden md:flex items-center gap-2 px-2.5 py-1 rounded-md bg-emerald-950/40 border border-emerald-500/20 text-[11px] text-emerald-400 font-medium">
           <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-          <span>Real-Time Scheduler Active (10s sync)</span>
+          <span>Real-Time Engine Active</span>
         </div>
       </div>
 
@@ -111,7 +131,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           title="Automate GitHub repository & deployment creation"
         >
           <GitBranch className="w-4 h-4 text-purple-400" />
-          <span className="hidden sm:inline">GitHub Deploy</span>
+          <span className="hidden sm:inline">GitHub Repo</span>
           <span className="px-1.5 py-0.2 rounded text-[10px] bg-purple-950 border border-purple-500/40 text-purple-300 font-mono">
             SAMP-Platform
           </span>
@@ -141,17 +161,74 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
         </div>
 
-        {/* User Avatar */}
-        <div className="flex items-center gap-2.5 pl-2 border-l border-slate-800">
-          <img
-            src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"
-            alt="Profile"
-            className="w-8 h-8 rounded-full ring-2 ring-indigo-500/40 object-cover"
-          />
-          <div className="hidden lg:block text-left">
-            <div className="text-xs font-bold text-slate-200">Admin Account</div>
-            <div className="text-[10px] text-indigo-400 font-medium">Enterprise Pro</div>
-          </div>
+        {/* User Avatar & Account Creation Dropdown */}
+        <div className="relative pl-2 border-l border-slate-800">
+          <button
+            onClick={() => setProfileDropdown(!profileDropdown)}
+            className="flex items-center gap-2.5 p-1 rounded-lg hover:bg-slate-800/60 transition-colors"
+          >
+            <img
+              src={currentUser?.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"}
+              alt="Profile"
+              className="w-8 h-8 rounded-full ring-2 ring-indigo-500/40 object-cover"
+            />
+            <div className="hidden lg:block text-left">
+              <div className="text-xs font-bold text-slate-200 truncate max-w-[120px]">
+                {currentUser?.name || 'Administrator'}
+              </div>
+              <div className="text-[10px] text-indigo-400 font-medium">
+                {currentUser?.role === 'owner' ? 'Workspace Owner' : 'Team Admin'}
+              </div>
+            </div>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+          </button>
+
+          {profileDropdown && (
+            <div className="absolute right-0 mt-2 w-64 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl py-2 z-50">
+              <div className="px-4 py-2 border-b border-slate-800/80">
+                <div className="text-xs font-bold text-white truncate">{currentUser?.name}</div>
+                <div className="text-[11px] text-slate-400 font-mono truncate">{currentUser?.email}</div>
+                <div className="text-[10px] text-indigo-400 font-medium mt-0.5">{currentUser?.company}</div>
+              </div>
+
+              <div className="py-1">
+                <button
+                  onClick={() => {
+                    setProfileDropdown(false);
+                    onOpenAuthModal();
+                  }}
+                  className="w-full text-left px-4 py-2 text-xs text-slate-300 hover:text-white hover:bg-slate-800 flex items-center gap-2"
+                >
+                  <UserPlus className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Create / Switch Account</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setProfileDropdown(false);
+                    onResetData();
+                  }}
+                  className="w-full text-left px-4 py-2 text-xs text-slate-300 hover:text-rose-400 hover:bg-slate-800 flex items-center gap-2"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Reset / Clear All Data</span>
+                </button>
+              </div>
+
+              <div className="pt-1 border-t border-slate-800/80">
+                <button
+                  onClick={() => {
+                    setProfileDropdown(false);
+                    onLogout();
+                  }}
+                  className="w-full text-left px-4 py-2 text-xs text-rose-400 hover:bg-slate-800 flex items-center gap-2"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Sign Out</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </header>
